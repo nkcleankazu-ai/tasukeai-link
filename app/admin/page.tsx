@@ -1,8 +1,32 @@
-export default function AdminPage() {
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+
+export default async function AdminPage() {
+  const supabase = createClient();
+
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    redirect("/login");
+  }
+
+  const { data: admin } = await supabase
+    .from("admin_users")
+    .select("user_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!admin) {
+    redirect("/requests");
+  }
+
   return (
     <main style={{ padding: "24px", maxWidth: "900px", margin: "0 auto" }}>
       <h1>管理者ダッシュボード</h1>
-      <p>たすけあいリンク 管理画面</p>
+      <p>たすけあいリンク管理画面</p>
 
       <section style={{ marginTop: "24px" }}>
         <h2>管理メニュー</h2>
@@ -15,7 +39,7 @@ export default function AdminPage() {
       </section>
 
       <p style={{ marginTop: "30px", color: "#777" }}>
-        ※ 管理機能は今後追加予定です。
+        管理者としてログインしています。
       </p>
     </main>
   );
