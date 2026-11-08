@@ -9,22 +9,31 @@ export default async function AdminPage() {
     error,
   } = await supabase.auth.getUser();
 
+  // ログインしていない場合
   if (error || !user) {
     redirect("/login");
   }
 
+  // 管理者かどうか確認
   const { data: admin } = await supabase
     .from("admin_users")
     .select("user_id")
     .eq("user_id", user.id)
     .maybeSingle();
 
+  // 管理者でなければ依頼一覧へ
   if (!admin) {
     redirect("/requests");
   }
 
   return (
-    <main style={{ padding: "24px", maxWidth: "900px", margin: "0 auto" }}>
+    <main
+      style={{
+        padding: "24px",
+        maxWidth: "900px",
+        margin: "0 auto",
+      }}
+    >
       <h1>管理者ダッシュボード</h1>
       <p>たすけあいリンク管理画面</p>
 
