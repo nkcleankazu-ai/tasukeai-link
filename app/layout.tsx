@@ -1,17 +1,21 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
+
 export const metadata: Metadata = {
   title: "たすけあいリンク｜困りごとと助けたい気持ちをつなぐ",
-  description:
-    "全国の困りごとと、助けたい気持ちをつなぐマッチングサービス。",
+  description: "全国の困りごとと、助けたい気持ちをつなぐマッチングサービス。",
   manifest: "/manifest.webmanifest",
+  verification: {
+    google: "Qj9PzPEMyqTWYkdCH99u9WphR5loqjoRrFSjt09MLQQ",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "たすけあいリンク"
-  }
+    title: "たすけあいリンク",
+  },
 };
+
 
 export const viewport: Viewport = {
   themeColor: "#173d35",
