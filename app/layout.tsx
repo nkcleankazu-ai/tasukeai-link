@@ -3,8 +3,8 @@ import "./globals.css";
 
 
 export const metadata: Metadata = {
-  title: "たすけあいリンク｜困りごとと助けたい気持ちをつなぐ",
-  description: "全国の困りごとと、助けたい気持ちをつなぐマッチングサービス。",
+  title: "たすけあいリンク｜困りごと・助け合い・仕事依頼をつなぐ",
+  description: "全国の困っている人と助けたい人をつなぐ助け合いサービス。お金や物資の支援、清掃・運搬などの作業依頼から、職人さんへの仕事依頼まで。",
   manifest: "/manifest.webmanifest",
   verification: {
     google: "Qj9PzPEMyqTWYkdCH99u9WphR5loqjoRrFSjt09MLQQ",
