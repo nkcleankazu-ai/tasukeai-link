@@ -1,3 +1,4 @@
+
 import Link from "next/link";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
@@ -11,6 +12,7 @@ export const metadata = {
 
 type RequestItem = {
   id: string;
+  user_id: string;
   title: string | null;
   description: string | null;
   category: string | null;
@@ -44,15 +46,19 @@ async function getRequests(category?: string): Promise<RequestItem[]> {
               cookieStore.set(name, value, options);
             });
           } catch {
-            // Cookieを書き込めない場合は何もしません
+            // Cookieを書き込めない場合があります
           }
         },
       },
     });
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     let query = supabase
       .from("requests")
-      .select("id, title, description, category, created_at")
+      .select("id, user_id, title, description, category, created_at")
       .order("created_at", { ascending: false });
 
     if (category && categoryLabels[category]) {
@@ -63,7 +69,29 @@ async function getRequests(category?: string): Promise<RequestItem[]> {
 
     if (error || !data) return [];
 
-    return data as RequestItem[];
+    let requests = data as RequestItem[];
+
+    // ログイン中の場合、ブロックした相手の依頼を除外
+    if (user) {
+      const { data: blocks, error: blockError } = await supabase
+        .from("user_blocks")
+        .select("blocked_user_id")
+        .eq("blocker_id", user.id);
+
+      if (blockError) {
+        console.error("ブロック情報の取得エラー:", blockError);
+      } else {
+        const blockedIds = new Set(
+          (blocks || []).map((block) => block.blocked_user_id)
+        );
+
+        requests = requests.filter(
+          (request) => !blockedIds.has(request.user_id)
+        );
+      }
+    }
+
+    return requests;
   } catch (error) {
     console.error("依頼一覧の読み込みエラー:", error);
     return [];
