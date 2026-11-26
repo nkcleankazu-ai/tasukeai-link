@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
@@ -24,6 +23,15 @@ export default function RequestDetailClient({
   const [safetyLoading, setSafetyLoading] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   const [checkedUser, setCheckedUser] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    supabase.auth.getUser().then(({ data }) => {
+      setIsOwner(Boolean(data.user && data.user.id === request.user_id));
+      setCheckedUser(true);
+    });
+  }, [request.user_id]);
 
   async function getCurrentUser() {
     const supabase = createClient();
@@ -99,15 +107,14 @@ export default function RequestDetailClient({
       }
 
       const supabase = createClient();
-      const { error } = await supabase.from("user_blocks").upsert(
-        {
-          blocker_id: user.id,
-          blocked_user_id: request.user_id,
-        },
-        { onConflict: "blocker_id,blocked_user_id" }
-      );
+      const { error } = await supabase.from("user_blocks").insert({
+        blocker_id: user.id,
+        blocked_user_id: request.user_id,
+      });
 
-      if (error) {
+      if (error?.code === "23505") {
+        setSafetyStatus("このユーザーは既にブロックしています。");
+      } else if (error) {
         setSafetyStatus("ブロックできませんでした。");
       } else {
         setSafetyStatus("このユーザーをブロックしました。");
@@ -137,13 +144,13 @@ export default function RequestDetailClient({
         return;
       }
 
-      if (!applicantName.trim() || !message.trim()) {
-        setApplyStatus("名前と応募メッセージを入力してください。");
+      if (user.id === request.user_id) {
+        setApplyStatus("自分の依頼には応募できません。");
         return;
       }
 
-      if (user.id === request.user_id) {
-        setApplyStatus("自分の依頼には応募できません。");
+      if (!applicantName.trim() || !message.trim()) {
+        setApplyStatus("名前と応募メッセージを入力してください。");
         return;
       }
 
@@ -175,15 +182,6 @@ export default function RequestDetailClient({
       setLoading(false);
     }
   }
-
-  // ログインユーザーと依頼者が同一か確認
-  useState(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
-      setIsOwner(Boolean(data.user && data.user.id === request.user_id));
-      setCheckedUser(true);
-    });
-  });
 
   const category =
     typeof request.category === "string"
@@ -221,20 +219,10 @@ export default function RequestDetailClient({
           <h2>安全対策</h2>
           <p>不審な依頼や迷惑行為があった場合は運営に通報できます。</p>
           <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              className="button"
-              disabled={safetyLoading}
-              onClick={handleReport}
-            >
+            <button type="button" className="button" disabled={safetyLoading} onClick={handleReport}>
               通報する
             </button>
-            <button
-              type="button"
-              className="button"
-              disabled={safetyLoading}
-              onClick={handleBlock}
-            >
+            <button type="button" className="button" disabled={safetyLoading} onClick={handleBlock}>
               このユーザーをブロック
             </button>
           </div>
@@ -282,10 +270,7 @@ export default function RequestDetailClient({
             <div>
               <p>メッセージ用アクセスコード：</p>
               <p>{accessCode}</p>
-              <button
-                type="button"
-                onClick={() => router.push(`/messages/${accessCode}`)}
-              >
+              <button type="button" onClick={() => router.push(`/messages/${accessCode}`)}>
                 メッセージを送る
               </button>
             </div>
