@@ -20,12 +20,103 @@ export default function RequestDetailClient({
   const [applyStatus, setApplyStatus] = useState("");
   const [accessCode, setAccessCode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [safetyStatus, setSafetyStatus] = useState("");
+  const [safetyLoading, setSafetyLoading] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
+  const [checkedUser, setCheckedUser] = useState(false);
 
-  function generateAccessCode() {
-    const bytes = crypto.getRandomValues(new Uint8Array(16));
-    return Array.from(bytes, (byte) =>
-      byte.toString(16).padStart(2, "0")
-    ).join("");
+  async function getCurrentUser() {
+    const supabase = createClient();
+    const { data, error } = await supabase.auth.getUser();
+
+    if (error || !data.user) {
+      setSafetyStatus("この操作にはログインが必要です。");
+      return null;
+    }
+
+    return data.user;
+  }
+
+  async function handleReport() {
+    if (!request.user_id) return;
+
+    const category = window.prompt(
+      "通報理由を入力してください（迷惑行為・詐欺の疑い・危険な依頼・その他）"
+    );
+    if (!category?.trim()) return;
+
+    const description = window.prompt("詳しい内容を入力してください。");
+    if (!description?.trim()) return;
+
+    setSafetyLoading(true);
+    setSafetyStatus("");
+
+    try {
+      const user = await getCurrentUser();
+      if (!user) return;
+
+      if (user.id === request.user_id) {
+        setSafetyStatus("自分の依頼は通報できません。");
+        return;
+      }
+
+      const supabase = createClient();
+      const { error } = await supabase.from("reports").insert({
+        reporter_id: user.id,
+        reported_user_id: request.user_id,
+        request_id: id,
+        category: category.trim().slice(0, 100),
+        description: description.trim().slice(0, 2000),
+      });
+
+      if (error) {
+        setSafetyStatus("通報できませんでした。時間をおいて再度お試しください。");
+      } else {
+        setSafetyStatus("通報を受け付けました。ご協力ありがとうございます。");
+      }
+    } catch {
+      setSafetyStatus("通報に失敗しました。");
+    } finally {
+      setSafetyLoading(false);
+    }
+  }
+
+  async function handleBlock() {
+    if (!request.user_id) return;
+
+    if (!window.confirm("このユーザーをブロックしますか？")) return;
+
+    setSafetyLoading(true);
+    setSafetyStatus("");
+
+    try {
+      const user = await getCurrentUser();
+      if (!user) return;
+
+      if (user.id === request.user_id) {
+        setSafetyStatus("自分自身はブロックできません。");
+        return;
+      }
+
+      const supabase = createClient();
+      const { error } = await supabase.from("user_blocks").upsert(
+        {
+          blocker_id: user.id,
+          blocked_user_id: request.user_id,
+        },
+        { onConflict: "blocker_id,blocked_user_id" }
+      );
+
+      if (error) {
+        setSafetyStatus("ブロックできませんでした。");
+      } else {
+        setSafetyStatus("このユーザーをブロックしました。");
+      }
+    } catch {
+      setSafetyStatus("ブロックに失敗しました。");
+    } finally {
+      setSafetyLoading(false);
+    }
   }
 
   async function handleApply(event: FormEvent<HTMLFormElement>) {
@@ -36,7 +127,6 @@ export default function RequestDetailClient({
 
     try {
       const supabase = createClient();
-
       const {
         data: { user },
         error: authError,
@@ -44,17 +134,23 @@ export default function RequestDetailClient({
 
       if (authError || !user) {
         setApplyStatus("応募にはログインが必要です。");
-        setLoading(false);
         return;
       }
 
       if (!applicantName.trim() || !message.trim()) {
         setApplyStatus("名前と応募メッセージを入力してください。");
-        setLoading(false);
         return;
       }
 
-      const generatedAccessCode = generateAccessCode();
+      if (user.id === request.user_id) {
+        setApplyStatus("自分の依頼には応募できません。");
+        return;
+      }
+
+      const generatedAccessCode = Array.from(
+        crypto.getRandomValues(new Uint8Array(16)),
+        (byte) => byte.toString(16).padStart(2, "0")
+      ).join("");
 
       const { error } = await supabase.from("applications").insert({
         request_id: id,
@@ -66,7 +162,6 @@ export default function RequestDetailClient({
 
       if (error) {
         setApplyStatus("応募できませんでした。入力内容や権限設定を確認してください。");
-        setLoading(false);
         return;
       }
 
@@ -80,6 +175,15 @@ export default function RequestDetailClient({
       setLoading(false);
     }
   }
+
+  // ログインユーザーと依頼者が同一か確認
+  useState(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      setIsOwner(Boolean(data.user && data.user.id === request.user_id));
+      setCheckedUser(true);
+    });
+  });
 
   const category =
     typeof request.category === "string"
@@ -96,7 +200,7 @@ export default function RequestDetailClient({
         <h2>困っていること</h2>
         <p>{request.description || "説明はありません。"}</p>
 
-        {Boolean(request.user_id) && (
+        {isOwner && (
           <p>
             <Link href={`/requests/${id}/applications`}>
               応募一覧を見る
@@ -112,12 +216,36 @@ export default function RequestDetailClient({
         )}
       </section>
 
+      {checkedUser && !isOwner && request.user_id && (
+        <section className="section card">
+          <h2>安全対策</h2>
+          <p>不審な依頼や迷惑行為があった場合は運営に通報できます。</p>
+          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="button"
+              disabled={safetyLoading}
+              onClick={handleReport}
+            >
+              通報する
+            </button>
+            <button
+              type="button"
+              className="button"
+              disabled={safetyLoading}
+              onClick={handleBlock}
+            >
+              このユーザーをブロック
+            </button>
+          </div>
+          {safetyStatus && <p role="status">{safetyStatus}</p>}
+        </section>
+      )}
+
       <section className="section card">
         <h2>依頼に応募する</h2>
         <p>安全のため、応募にはログインが必要です。</p>
-        <p>
-          <Link href="/login">ログイン・新規登録はこちら</Link>
-        </p>
+        <p><Link href="/login">ログイン・新規登録はこちら</Link></p>
 
         <form onSubmit={handleApply}>
           <div>
