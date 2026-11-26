@@ -1,5 +1,5 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import{ cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import type { HelpRequest } from "@/lib/types";
@@ -19,13 +19,13 @@ async function getRequest(id: string): Promise<HelpRequest | null> {
         getAll() {
           return cookieStore.getAll();
         },
-        setAll(cookiesToSet) { name: string; value: string; options: CookieOptions }[]) {
+        setAll(cookiesToSet: any[]) {
           try {
             cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options);
             });
           } catch {
-            // Server ComponentではCookieを書き込めない場合があります
+            // Cookieを書き込めない場合は何もしません
           }
         },
       },
@@ -61,7 +61,9 @@ export async function generateMetadata({
   }
 
   const title = request.title || "支援依頼";
-  const description = (request.description || "支援を必要としている人からの依頼です。")
+  const description = (
+    request.description || "支援を必要としている人からの依頼です。"
+  )
     .replace(/\s+/g, " ")
     .slice(0, 150);
 
