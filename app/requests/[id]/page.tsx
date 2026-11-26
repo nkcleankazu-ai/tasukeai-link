@@ -1,3 +1,4 @@
+
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
@@ -25,7 +26,7 @@ async function getRequest(id: string): Promise<HelpRequest | null> {
               cookieStore.set(name, value, options);
             });
           } catch {
-            // Cookieを書き込めない場合は何もしません
+            // Cookieを書き込めない場合があります
           }
         },
       },
