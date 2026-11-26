@@ -19,6 +19,7 @@ export default function RequestDetailClient({
   const [applicantName, setApplicantName] = useState("");
   const [applyStatus, setApplyStatus] = useState("");
   const [accessCode, setAccessCode] = useState("");
+  const [loading, setLoading] = useState(false);
 
   function generateAccessCode() {
     const bytes = crypto.getRandomValues(new Uint8Array(16));
@@ -31,43 +32,52 @@ export default function RequestDetailClient({
     event.preventDefault();
     setApplyStatus("");
     setAccessCode("");
-
-    if (!applicantName.trim() || !message.trim()) {
-      setApplyStatus("名前と応募メッセージを入力してください。");
-      return;
-    }
+    setLoading(true);
 
     try {
-      const generatedAccessCode = generateAccessCode();
       const supabase = createClient();
 
-      const { data, error } = await supabase
-        .from("applications")
-        .insert({
-          request_id: id,
-          applicant_name: applicantName.trim(),
-          message: message.trim(),
-          access_code: generatedAccessCode,
-        })
-        .select("access_code")
-        .single();
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError || !user) {
+        setApplyStatus("応募にはログインが必要です。");
+        setLoading(false);
+        return;
+      }
+
+      if (!applicantName.trim() || !message.trim()) {
+        setApplyStatus("名前と応募メッセージを入力してください。");
+        setLoading(false);
+        return;
+      }
+
+      const generatedAccessCode = generateAccessCode();
+
+      const { error } = await supabase.from("applications").insert({
+        request_id: id,
+        applicant_name: applicantName.trim(),
+        applicant_user_id: user.id,
+        message: message.trim(),
+        access_code: generatedAccessCode,
+      });
 
       if (error) {
-        setApplyStatus("応募できませんでした：" + error.message);
+        setApplyStatus("応募できませんでした。入力内容や権限設定を確認してください。");
+        setLoading(false);
         return;
       }
 
-      if (!data?.access_code) {
-        setApplyStatus("応募は完了しましたが、アクセスコードを取得できませんでした。");
-        return;
-      }
-
-      setAccessCode(data.access_code);
+      setAccessCode(generatedAccessCode);
       setApplyStatus("応募が完了しました！");
       setApplicantName("");
       setMessage("");
     } catch {
       setApplyStatus("応募できませんでした。時間をおいて再度お試しください。");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -104,6 +114,11 @@ export default function RequestDetailClient({
 
       <section className="section card">
         <h2>依頼に応募する</h2>
+        <p>安全のため、応募にはログインが必要です。</p>
+        <p>
+          <Link href="/login">ログイン・新規登録はこちら</Link>
+        </p>
+
         <form onSubmit={handleApply}>
           <div>
             <label htmlFor="applicant-name">名前</label>
@@ -112,6 +127,7 @@ export default function RequestDetailClient({
               type="text"
               value={applicantName}
               onChange={(event) => setApplicantName(event.target.value)}
+              maxLength={100}
               required
             />
           </div>
@@ -122,18 +138,22 @@ export default function RequestDetailClient({
               id="application-message"
               value={message}
               onChange={(event) => setMessage(event.target.value)}
+              maxLength={3000}
               required
               rows={5}
             />
           </div>
 
-          <button type="submit">応募する</button>
+          <button type="submit" disabled={loading}>
+            {loading ? "応募中..." : "ログインして応募する"}
+          </button>
 
           {applyStatus && <p role="status">{applyStatus}</p>}
 
           {accessCode && (
             <div>
-              <p>アクセスコード：{accessCode}</p>
+              <p>メッセージ用アクセスコード：</p>
+              <p>{accessCode}</p>
               <button
                 type="button"
                 onClick={() => router.push(`/messages/${accessCode}`)}
