@@ -50,7 +50,7 @@ export const metadata: Metadata = {
   },
   manifest: "/manifest.webmanifest",
   verification: {
-    google: "Qj9PzPEMyqTWYkdCH99u9WphR5loqjoRrFSjt09MLQQ",
+    google: "F3JJk3VO2c2HJnGIbgzggxLa7JgawZfTAf9zIpVoTZY",
   },
   appleWebApp: {
     capable: true,
