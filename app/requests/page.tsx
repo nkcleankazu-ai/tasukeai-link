@@ -1,14 +1,12 @@
 import Link from "next/link";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 export const metadata = {
   title: "支援・依頼一覧",
   description:
-    "生活の困りごと、食料や物資、清掃・運搬・買い物などの支援依頼を探せます。たすけあいリンクで、助けたい人と助けを必要とする人をつなぎます。",
-  alternates: {
-    canonical: "/requests",
-  },
+    "生活の困りごと、食料や物資、清掃・運搬・買い物などの支援依頼を探せます。",
+  alternates: { canonical: "/requests" },
 };
 
 type RequestItem = {
@@ -40,19 +38,13 @@ async function getRequests(category?: string): Promise<RequestItem[]> {
         getAll() {
           return cookieStore.getAll();
         },
-        setAll(
-          cookiesToSet: {
-            name: string;
-            value: string;
-            options: CookieOptions;
-          }[]
-        ) {
+        setAll(cookiesToSet: any[]) {
           try {
             cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options);
             });
           } catch {
-            // Server ComponentではCookieを書き込めない場合があります
+            // Cookieを書き込めない場合は何もしません
           }
         },
       },
@@ -73,7 +65,7 @@ async function getRequests(category?: string): Promise<RequestItem[]> {
 
     return data as RequestItem[];
   } catch (error) {
-    console.error("Supabase接続エラー:", error);
+    console.error("依頼一覧の読み込みエラー:", error);
     return [];
   }
 }
