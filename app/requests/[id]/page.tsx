@@ -1,182 +1,95 @@
 
-"use client";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+import { notFound } from "next/navigation";
+import type { Metadata } from "next";
+import type { HelpRequest } from "@/lib/types";
+import RequestDetailClient from "./RequestDetailClient";
 
-import { useEffect, useState, type FormEvent } from "react";
-import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase";
-import { categoryLabels, type HelpRequest } from "@/lib/types";
+async function getRequest(id: string): Promise<HelpRequest | null> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-export default function RequestDetailPage() {
-  const params = useParams<{ id: string }>();
-  const id = params.id;
-  const router = useRouter();
+  if (!url || !key) return null;
 
-  const [request, setRequest] = useState<HelpRequest | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
-  const [applicantName, setApplicantName] = useState("");
-  const [loadError, setLoadError] = useState("");
-  const [applyStatus, setApplyStatus] = useState("");
-  const [accessCode, setAccessCode] = useState("");
+  try {
+    const cookieStore = cookies();
 
-  function generateAccessCode() {
-    const bytes = crypto.getRandomValues(new Uint8Array(16));
-    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    const supabase = createServerClient(url, key, {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+            });
+          } catch {
+            // Server ComponentではCookieを書き込めない場合があります
+          }
+        },
+      },
+    });
+
+    const { data, error } = await supabase
+      .from("requests")
+      .select("id, user_id, title, description, category, created_at")
+      .eq("id", id)
+      .single();
+
+    if (error || !data) return null;
+
+    return data as HelpRequest;
+  } catch (error) {
+    console.error("依頼詳細の読み込みエラー:", error);
+    return null;
   }
+}
 
-  async function handleApply(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setApplyStatus("");
-    setAccessCode("");
-
-    if (!applicantName.trim() || !message.trim()) {
-      setApplyStatus("名前と応募メッセージを入力してください。");
-      return;
-    }
-
-    try {
-      const generatedAccessCode = generateAccessCode();
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("applications")
-        .insert({
-          request_id: id,
-          applicant_name: applicantName.trim(),
-          message: message.trim(),
-          access_code: generatedAccessCode,
-        })
-        .select("access_code")
-        .single();
-
-      if (error) {
-        setApplyStatus("応募できませんでした：" + error.message);
-        return;
-      }
-
-      if (!data?.access_code) {
-        setApplyStatus("応募は完了しましたが、アクセスコードを取得できませんでした。");
-        return;
-      }
-
-      setAccessCode(data.access_code);
-      setApplyStatus("応募が完了しました！");
-      setApplicantName("");
-      setMessage("");
-    } catch {
-      setApplyStatus("応募できませんでした。時間をおいて再度お試しください。");
-    }
-  }
-
-  useEffect(() => {
-    async function loadRequest() {
-      try {
-        const supabase = createClient();
-        const { data, error } = await supabase
-          .from("requests")
-          .select("*")
-          .eq("id", id)
-          .single();
-
-        if (error) {
-          setLoadError("依頼を読み込めませんでした。");
-        } else {
-          setRequest(data as HelpRequest);
-        }
-      } catch {
-        setLoadError("接続できませんでした。");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    if (id) {
-      loadRequest();
-    }
-  }, [id]);
-
-  if (loading) {
-    return <main className="container"><p>読み込み中...</p></main>;
-  }
+export async function generateMetadata({
+  params,
+}: {
+  params: { id: string };
+}): Promise<Metadata> {
+  const request = await getRequest(params.id);
 
   if (!request) {
-    return (
-      <main className="container">
-        <section className="section card">
-          <h1>依頼の詳細</h1>
-          <p>{loadError || "依頼が見つかりませんでした。"}</p>
-          <Link href="/">トップページに戻る</Link>
-        </section>
-      </main>
-    );
+    return {
+      title: "依頼が見つかりません",
+      robots: { index: false, follow: false },
+    };
   }
 
-  const category =
-    typeof request.category === "string"
-      ? categoryLabels[request.category] || request.category
-      : "未設定";
+  const title = request.title || "支援依頼";
+  const description = (request.description || "支援を必要としている人からの依頼です。")
+    .replace(/\s+/g, " ")
+    .slice(0, 150);
 
-  return (
-    <main className="container">
-      <section className="section card">
-        <p><Link href="/">← トップページに戻る</Link></p>
-        <h1>{request.title || "依頼の詳細"}</h1>
-        <p className="muted">カテゴリー：{category}</p>
-        <hr />
-        <h2>困っていること</h2>
-        <p>{request.description || "説明はありません。"}</p>
-        {Boolean(request.user_id) && (
-  <p>
-    <Link href={`/requests/${id}/applications`}>
-      応募一覧を見る
-    </Link>
-  </p>
-)}
-        {request.created_at && (
-          <p className="muted">
-            投稿日：{new Date(request.created_at).toLocaleDateString("ja-JP")}
-          </p>
-        )}
-      </section>
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: `/requests/${params.id}`,
+    },
+    openGraph: {
+      title: `${title} | たすけあいリンク`,
+      description,
+      type: "article",
+    },
+  };
+}
 
-      <section className="section card">
-        <h2>依頼に応募する</h2>
-        <form onSubmit={handleApply}>
-          <div>
-            <label htmlFor="applicant-name">名前</label>
-            <input
-              id="applicant-name"
-              type="text"
-              value={applicantName}
-              onChange={(event) => setApplicantName(event.target.value)}
-              required
-            />
-          </div>
-          <div>
-            <label htmlFor="application-message">応募メッセージ</label>
-            <textarea
-              id="application-message"
-              value={message}
-              onChange={(event) => setMessage(event.target.value)}
-              required
-              rows={5}
-            />
-          </div>
-          <button type="submit">応募する</button>
-          {applyStatus && <p role="status">{applyStatus}</p>}
-          {accessCode && (
-            <div>
-              <p>アクセスコード：{accessCode}</p>
-              <button
-                type="button"
-                onClick={() => router.push(`/messages/${accessCode}`)}
-              >
-                メッセージを送る
-              </button>
-            </div>
-          )}
-        </form>
-      </section>
-    </main>
-  );
+export default async function RequestDetailPage({
+  params,
+}: {
+  params: { id: string };
+}) {
+  const request = await getRequest(params.id);
+
+  if (!request) {
+    notFound();
+  }
+
+  return <RequestDetailClient request={request} />;
 }
