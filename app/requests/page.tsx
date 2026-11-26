@@ -1,4 +1,3 @@
-
 import Link from "next/link";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
@@ -31,10 +30,7 @@ async function getRequests(category?: string): Promise<RequestItem[]> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!url || !key) {
-    console.error("Supabaseの環境設定がありません。");
-    return [];
-  }
+  if (!url || !key) return [];
 
   try {
     const cookieStore = cookies();
@@ -44,8 +40,13 @@ async function getRequests(category?: string): Promise<RequestItem[]> {
         getAll() {
           return cookieStore.getAll();
         },
-        setAll(cookiesToSet) { name: string; value: string; options: CookieOptions }[]) {
-        
+        setAll(
+          cookiesToSet: {
+            name: string;
+            value: string;
+            options: CookieOptions;
+          }[]
+        ) {
           try {
             cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options);
@@ -68,12 +69,9 @@ async function getRequests(category?: string): Promise<RequestItem[]> {
 
     const { data, error } = await query;
 
-    if (error) {
-      console.error("依頼の読み込みエラー:", error);
-      return [];
-    }
+    if (error || !data) return [];
 
-    return (data ?? []) as RequestItem[];
+    return data as RequestItem[];
   } catch (error) {
     console.error("Supabase接続エラー:", error);
     return [];
@@ -89,33 +87,29 @@ export default async function RequestsPage({
   const requests = await getRequests(category);
 
   return (
-    <main className="container" style={{ maxWidth: "900px", margin: "0 auto", padding: "24px 16px" }}>
+    <main
+      className="container"
+      style={{ maxWidth: "900px", margin: "0 auto", padding: "24px 16px" }}
+    >
       <h1>支援を探す</h1>
       <p className="muted">
         あなたにできる支援や、必要としている人の依頼を探せます。
       </p>
 
       <nav className="row" aria-label="支援の種類">
-        <Link className="button secondary" href="/requests">
-          すべて
-        </Link>
-        <Link className="button secondary" href="/requests?category=money">
-          お金の支援
-        </Link>
-        <Link className="button secondary" href="/requests?category=goods">
-          物資・食料
-        </Link>
-        <Link className="button secondary" href="/requests?category=work">
-          作業の支援
-        </Link>
+        <Link className="button secondary" href="/requests">すべて</Link>
+        <Link className="button secondary" href="/requests?category=money">お金の支援</Link>
+        <Link className="button secondary" href="/requests?category=goods">物資・食料</Link>
+        <Link className="button secondary" href="/requests?category=work">作業の支援</Link>
       </nav>
 
       <section className="section">
-        <div className="row" style={{ alignItems: "center", justifyContent: "space-between" }}>
+        <div
+          className="row"
+          style={{ alignItems: "center", justifyContent: "space-between" }}
+        >
           <h2>
-            {category
-              ? categoryLabels[category] ?? "依頼一覧"
-              : "新着の依頼一覧"}
+            {category ? categoryLabels[category] ?? "依頼一覧" : "新着の依頼一覧"}
           </h2>
           <Link className="button" href="/requests/new">
             依頼を投稿する
@@ -139,37 +133,29 @@ export default async function RequestsPage({
                 <span className="tag">
                   {categoryLabels[request.category ?? "other"] ?? "その他"}
                 </span>
-
                 <h3>
                   <Link href={`/requests/${request.id}`}>
                     {request.title || "タイトルなし"}
                   </Link>
                 </h3>
-
                 <p>
                   {(request.description || "説明はありません。").slice(0, 180)}
                   {(request.description?.length ?? 0) > 180 ? "…" : ""}
                 </p>
-
                 {request.created_at && (
                   <p className="muted">
                     投稿日：
                     {new Date(request.created_at).toLocaleDateString("ja-JP")}
                   </p>
                 )}
-
-                <Link href={`/requests/${request.id}`}>
-                  詳細を見る →
-                </Link>
+                <Link href={`/requests/${request.id}`}>詳細を見る →</Link>
               </article>
             ))}
           </div>
         )}
       </section>
 
-      <p>
-        <Link href="/">トップページへ戻る</Link>
-      </p>
+      <p><Link href="/">トップページへ戻る</Link></p>
     </main>
   );
 }
