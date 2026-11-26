@@ -22,7 +22,6 @@ export default function MessagePage() {
   const accessCode = params.accessCode;
 
   const [messages, setMessages] = useState<Message[]>([]);
-  const [name, setName] = useState("");
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -63,8 +62,8 @@ export default function MessagePage() {
   async function handleSend(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!name.trim() || !content.trim()) {
-      setError("名前とメッセージを入力してください。");
+    if (!content.trim()) {
+      setError("メッセージを入力してください。");
       return;
     }
 
@@ -78,7 +77,6 @@ export default function MessagePage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            senderName: name.trim(),
             body: content.trim(),
           }),
         }
@@ -106,23 +104,15 @@ export default function MessagePage() {
       <h1 className="mb-6 text-2xl font-bold">メッセージ</h1>
 
       {error && (
-        <p role="alert" className="mb-4 rounded border border-red-300 bg-red-50 p-3 text-red-700">
+        <p
+          role="alert"
+          className="mb-4 rounded border border-red-300 bg-red-50 p-3 text-red-700"
+        >
           {error}
         </p>
       )}
 
       <form onSubmit={handleSend} className="mb-8 space-y-4">
-        <label className="block">
-          <span className="mb-1 block">名前</span>
-          <input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            maxLength={100}
-            required
-            className="w-full rounded border p-3"
-          />
-        </label>
-
         <label className="block">
           <span className="mb-1 block">メッセージ</span>
           <textarea
@@ -131,13 +121,14 @@ export default function MessagePage() {
             maxLength={10000}
             required
             rows={4}
+            placeholder="メッセージを入力してください"
             className="w-full rounded border p-3"
           />
         </label>
 
         <button
           type="submit"
-          disabled={sending || !name.trim() || !content.trim()}
+          disabled={sending || !content.trim()}
           className="rounded bg-blue-600 px-5 py-3 text-white disabled:opacity-50"
         >
           {sending ? "送信中..." : "送信する"}
