@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { categoryLabels, type HelpRequest } from "@/lib/types";
 
@@ -26,13 +26,7 @@ async function getRequests(): Promise<HelpRequest[]> {
         getAll() {
           return cookieStore.getAll();
         },
-        setAll(
-          cookiesToSet: {
-            name: string;
-            value: string;
-            options: CookieOptions;
-          }[]
-        ) {
+        setAll(cookiesToSet: any[]) {
           try {
             cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options);
