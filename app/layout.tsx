@@ -1,3 +1,4 @@
+
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
@@ -6,11 +7,26 @@ const siteUrl = "https://tasukeai-link.vercel.app";
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "たすけあいリンク｜困りごとと助け合いをつなぐ",
+    default: "たすけあいリンク｜生活支援・仕事・職人の助け合いマッチング",
     template: "%s｜たすけあいリンク",
   },
   description:
-    "たすけあいリンクは、困っている人と助けたい人をつなぐ助け合いサービスです。生活の困りごと、物資・食料の支援、清掃・運搬などの作業支援や仕事依頼をつなぎます。",
+    "たすけあいリンクは、困っている人と助けたい人、仕事を依頼したい人と職人をつなぐマッチングサービスです。生活支援、食料・物資、清掃、運搬、買い物、建設、外構、修理などの依頼を探せます。",
+  keywords: [
+    "助け合い",
+    "生活支援",
+    "支援募集",
+    "仕事依頼",
+    "職人",
+    "建設",
+    "外構工事",
+    "清掃",
+    "不用品回収",
+    "運搬",
+    "買い物代行",
+    "地域支援",
+    "マッチングサービス",
+  ],
   alternates: {
     canonical: "/",
   },
@@ -19,12 +35,12 @@ export const metadata: Metadata = {
     locale: "ja_JP",
     url: siteUrl,
     siteName: "たすけあいリンク",
-    title: "たすけあいリンク｜困りごとと助け合いをつなぐ",
+    title: "たすけあいリンク｜困りごとと仕事をつなぐ",
     description:
-      "困っている人と助けたい人をつなぐ。お金・物資・作業の支援や仕事依頼をつなぐサービスです。",
+      "生活の困りごとから職人への仕事依頼まで。助けたい人と必要としている人をつなぎます。",
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "たすけあいリンク",
     description: "困っている人と、助けたい人をつなぐ。",
   },
@@ -77,7 +93,7 @@ export default function RootLayout({
 
         <footer className="footer">
           <div className="wrap">
-            <p>たすけあいリンク ― 試作版</p>
+            <p>たすけあいリンク</p>
             <p>
               支援金の受け渡しは現在未実装です。
               緊急時は公的窓口・警察・消防などへ直接ご相談ください。
