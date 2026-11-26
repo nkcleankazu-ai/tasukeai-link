@@ -1,8 +1,8 @@
-import Link from "next/link";
-import { createClient } from "@/lib/supabase";
-import { categoryLabels, type HelpRequest } from "@/lib/types";
 
-export const revalidate = 60;
+import Link from "next/link";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+import { categoryLabels, type HelpRequest } from "@/lib/types";
 
 export const metadata = {
   title: "困りごと・生活支援・作業依頼を探す",
@@ -15,7 +15,32 @@ export const metadata = {
 
 async function getRequests(): Promise<HelpRequest[]> {
   try {
-    const supabase = createClient();
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!url || !key) {
+      console.error("Supabaseの環境設定がありません。");
+      return [];
+    }
+
+    const cookieStore = cookies();
+
+    const supabase = createServerClient(url, key, {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+            });
+          } catch {
+            // Server ComponentではCookieを書き込めない場合があります
+          }
+        },
+      },
+    });
 
     const { data, error } = await supabase
       .from("requests")
@@ -41,9 +66,7 @@ export default async function Home() {
   return (
     <div className="container">
       <section className="hero">
-        <span className="tag">
-          全国対応を目指す助け合いサービス
-        </span>
+        <span className="tag">助け合いをつなぐサービス</span>
 
         <h1>
           困っている人と、
@@ -145,15 +168,6 @@ export default async function Home() {
         )}
       </section>
 
-      <section className="section card">
-        <h2>安心して利用するために</h2>
-        <p>
-          個人情報や住所などは必要以上に公開しないようにしましょう。
-          支援の内容や条件を事前に確認し、安全にやり取りしてください。
-        </p>
-        <Link href="/safety">安全ガイドを確認する →</Link>
-      </section>
-
       <section className="section">
         <h2>たすけあいリンクの使い方</h2>
         <div className="grid">
@@ -175,6 +189,15 @@ export default async function Home() {
             <p>相手と内容を確認しながら、支援の方法を相談します。</p>
           </div>
         </div>
+      </section>
+
+      <section className="section card">
+        <h2>安心して利用するために</h2>
+        <p>
+          個人情報や住所などは必要以上に公開しないようにしましょう。
+          支援の内容や条件を事前に確認し、安全にやり取りしてください。
+        </p>
+        <Link href="/safety">安全ガイドを確認する →</Link>
       </section>
     </div>
   );
