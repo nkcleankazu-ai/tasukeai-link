@@ -1,6 +1,6 @@
-
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import AuthNav from "./components/AuthNav";
 
 const siteUrl = "https://tasukeai-link.vercel.app";
 
@@ -13,23 +13,11 @@ export const metadata: Metadata = {
   description:
     "たすけあいリンクは、困っている人と助けたい人、仕事を依頼したい人と職人をつなぐマッチングサービスです。生活支援、食料・物資、清掃、運搬、買い物、建設、外構、修理などの依頼を探せます。",
   keywords: [
-    "助け合い",
-    "生活支援",
-    "支援募集",
-    "仕事依頼",
-    "職人",
-    "建設",
-    "外構工事",
-    "清掃",
-    "不用品回収",
-    "運搬",
-    "買い物代行",
-    "地域支援",
-    "マッチングサービス",
+    "助け合い", "生活支援", "支援募集", "仕事依頼", "職人",
+    "建設", "外構工事", "清掃", "不用品回収", "運搬",
+    "買い物代行", "地域支援", "マッチングサービス",
   ],
-  alternates: {
-    canonical: "/",
-  },
+  alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     locale: "ja_JP",
@@ -44,10 +32,7 @@ export const metadata: Metadata = {
     title: "たすけあいリンク",
     description: "困っている人と、助けたい人をつなぐ。",
   },
-  robots: {
-    index: true,
-    follow: true,
-  },
+  robots: { index: true, follow: true },
   manifest: "/manifest.webmanifest",
   verification: {
     google: "F3JJk3VO2c2HJnGIbgzggxLa7JgawZfTAf9zIpVoTZY",
@@ -80,11 +65,7 @@ export default function RootLayout({
               <small>助けたい気持ちを、必要な人へ。</small>
             </a>
             <nav className="nav">
-              <a href="/requests">依頼を探す</a>
-              <a href="/requests/new">依頼する</a>
-              <a href="/login">ログイン</a>
-              <a href="/account">マイページ</a>
-              <a href="/admin">管理者</a>
+              <AuthNav />
             </nav>
           </div>
         </header>
