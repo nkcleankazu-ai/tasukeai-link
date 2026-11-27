@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
@@ -22,13 +23,16 @@ export default function RequestDetailClient({
   const [safetyStatus, setSafetyStatus] = useState("");
   const [safetyLoading, setSafetyLoading] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
   const [checkedUser, setCheckedUser] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
 
     supabase.auth.getUser().then(({ data }) => {
-      setIsOwner(Boolean(data.user && data.user.id === request.user_id));
+      const user = data.user;
+      setSignedIn(Boolean(user));
+      setIsOwner(Boolean(user && user.id === request.user_id));
       setCheckedUser(true);
     });
   }, [request.user_id]);
@@ -214,7 +218,7 @@ export default function RequestDetailClient({
         )}
       </section>
 
-      {checkedUser && !isOwner && request.user_id && (
+      {checkedUser && !isOwner && request.user_id && signedIn && (
         <section className="section card">
           <h2>安全対策</h2>
           <p>不審な依頼や迷惑行為があった場合は運営に通報できます。</p>
@@ -230,53 +234,58 @@ export default function RequestDetailClient({
         </section>
       )}
 
-      <section className="section card">
-        <h2>依頼に応募する</h2>
-        <p>安全のため、応募にはログインが必要です。</p>
-        <p><Link href="/login">ログイン・新規登録はこちら</Link></p>
+      {checkedUser && (
+        <section className="section card">
+          <h2>依頼に応募する</h2>
 
-        <form onSubmit={handleApply}>
-          <div>
-            <label htmlFor="applicant-name">名前</label>
-            <input
-              id="applicant-name"
-              type="text"
-              value={applicantName}
-              onChange={(event) => setApplicantName(event.target.value)}
-              maxLength={100}
-              required
-            />
-          </div>
+          {isOwner ? (
+            <p>これはあなたが投稿した依頼です。自分の依頼には応募できません。</p>
+          ) : !signedIn ? (
+            <>
+              <p>応募するにはログインが必要です。</p>
+              <Link href="/login">ログイン・新規登録はこちら</Link>
+            </>
+          ) : (
+            <form onSubmit={handleApply}>
+              <label htmlFor="applicant-name">名前</label>
+              <input
+                id="applicant-name"
+                type="text"
+                value={applicantName}
+                onChange={(event) => setApplicantName(event.target.value)}
+                maxLength={100}
+                required
+              />
 
-          <div>
-            <label htmlFor="application-message">応募メッセージ</label>
-            <textarea
-              id="application-message"
-              value={message}
-              onChange={(event) => setMessage(event.target.value)}
-              maxLength={3000}
-              required
-              rows={5}
-            />
-          </div>
+              <label htmlFor="application-message">応募メッセージ</label>
+              <textarea
+                id="application-message"
+                value={message}
+                onChange={(event) => setMessage(event.target.value)}
+                maxLength={3000}
+                required
+                rows={5}
+              />
 
-          <button type="submit" disabled={loading}>
-            {loading ? "応募中..." : "ログインして応募する"}
-          </button>
-
-          {applyStatus && <p role="status">{applyStatus}</p>}
-
-          {accessCode && (
-            <div>
-              <p>メッセージ用アクセスコード：</p>
-              <p>{accessCode}</p>
-              <button type="button" onClick={() => router.push(`/messages/${accessCode}`)}>
-                メッセージを送る
+              <button className="button" type="submit" disabled={loading}>
+                {loading ? "応募中..." : "応募する"}
               </button>
-            </div>
+
+              {applyStatus && <p role="status">{applyStatus}</p>}
+
+              {accessCode && (
+                <div>
+                  <p>メッセージ用アクセスコード：</p>
+                  <p>{accessCode}</p>
+                  <button type="button" onClick={() => router.push(`/messages/${accessCode}`)}>
+                    メッセージを送る
+                  </button>
+                </div>
+              )}
+            </form>
           )}
-        </form>
-      </section>
+        </section>
+      )}
     </main>
   );
 }
