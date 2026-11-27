@@ -16,11 +16,12 @@ export default function AuthNav() {
       setReady(true);
     });
 
-    const { data: { subscription } } =
-      supabase.auth.onAuthStateChange((_event, session) => {
-        setSignedIn(!!session);
-        setReady(true);
-      });
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSignedIn(!!session);
+      setReady(true);
+    });
 
     return () => subscription.unsubscribe();
   }, []);
@@ -35,6 +36,7 @@ export default function AuthNav() {
     <>
       <Link href="/requests">依頼を探す</Link>
       <Link href="/requests/new">依頼する</Link>
+
       {ready && signedIn ? (
         <>
           <Link href="/account">マイページ</Link>
@@ -43,8 +45,12 @@ export default function AuthNav() {
           </button>
         </>
       ) : (
-        <Link href="/login">ログイン</Link>
+        <>
+          <Link href="/login">ログイン</Link>
+          <Link href="/signup">新規会員登録</Link>
+        </>
       )}
+
       <Link href="/admin">管理者</Link>
     </>
   );
