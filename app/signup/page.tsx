@@ -1,247 +1,69 @@
-
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
-type RequestItem = {
-  id: string;
-  title: string | null;
-  category: string | null;
-  created_at: string | null;
-};
-
-type ApplicationItem = {
-  id: string;
-  request_id: string;
-  created_at: string | null;
-};
-
-const categoryLabels: Record<string, string> = {
-  money: "お金の支援",
-  goods: "物資・食料",
-  work: "作業の支援",
-  shopping: "買い物",
-  cleaning: "掃除",
-  cooking: "料理",
-  errands: "用事",
-  other: "その他",
-};
-
-export default function AccountPage() {
-  const router = useRouter();
+export default function SignupPage() {
   const [email, setEmail] = useState("");
-  const [userId, setUserId] = useState("");
-  const [requests, setRequests] = useState<RequestItem[]>([]);
-  const [applications, setApplications] = useState<ApplicationItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState("");
+  const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    async function loadAccount() {
-      const supabase = createClient();
-
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError || !user) {
-        router.replace("/login");
-        return;
-      }
-
-      setEmail(user.email || "");
-      setUserId(user.id);
-
-      const [requestResult, applicationResult] = await Promise.all([
-        supabase
-          .from("requests")
-          .select("id, title, category, created_at")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false }),
-
-        supabase
-          .from("applications")
-          .select("id, request_id, created_at")
-          .eq("applicant_user_id", user.id)
-          .order("created_at", { ascending: false }),
-      ]);
-
-      if (requestResult.error) {
-        setMessage("自分の依頼を読み込めませんでした。");
-      } else {
-        setRequests((requestResult.data || []) as RequestItem[]);
-      }
-
-      if (applicationResult.error) {
-        setMessage((current) =>
-          current
-            ? current + " 応募履歴も読み込めませんでした。"
-            : "応募履歴を読み込めませんでした。"
-        );
-      } else {
-        setApplications(
-          (applicationResult.data || []) as ApplicationItem[]
-        );
-      }
-
-      setLoading(false);
-    }
-
-    void loadAccount();
-  }, [router]);
-
-  async function handleDelete(request: RequestItem) {
-    const confirmed = window.confirm(
-      `「${request.title || "タイトルなし"}」を削除しますか？\nこの操作は取り消せません。`
-    );
-
-    if (!confirmed) return;
-
-    setDeletingId(request.id);
+  async function handleSignUp(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoading(true);
     setMessage("");
 
-    try {
-      const supabase = createClient();
-
-      const { data, error } = await supabase
-        .from("requests")
-        .delete()
-        .eq("id", request.id)
-        .eq("user_id", userId)
-        .select("id")
-        .maybeSingle();
-
-      if (error) {
-        setMessage("削除できませんでした：" + error.message);
-        return;
-      }
-
-      if (!data) {
-        setMessage("削除できませんでした。本人の依頼か権限を確認してください。");
-        return;
-      }
-
-      setRequests((current) =>
-        current.filter((item) => item.id !== request.id)
-      );
-      setMessage("依頼を削除しました。");
-    } catch {
-      setMessage("削除中にエラーが発生しました。");
-    } finally {
-      setDeletingId("");
-    }
-  }
-
-  async function handleLogout() {
     const supabase = createClient();
-    await supabase.auth.signOut();
-    router.replace("/login");
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (error) {
+      setMessage("登録できませんでした：" + error.message);
+    } else if (data.session) {
+      window.location.href = "/requests";
+      return;
+    } else {
+      setMessage("確認メールを確認してください。");
+    }
+
+    setLoading(false);
   }
 
   return (
-    <main
-      className="container"
-      style={{
-        maxWidth: "800px",
-        margin: "0 auto",
-        padding: "24px 16px",
-      }}
-    >
-      <section className="section card">
-        <h1>マイページ</h1>
-        <p className="muted">アカウント情報と活動履歴</p>
-
-        {loading ? (
-          <p>読み込み中...</p>
-        ) : (
-          <>
-            <div className="card">
-              <h2>アカウント情報</h2>
-              <p>メールアドレス：{email}</p>
-            </div>
-
-            <div className="card">
-              <h2>自分が投稿した依頼（{requests.length}件）</h2>
-
-              {requests.length === 0 ? (
-                <p>まだ依頼を投稿していません。</p>
-              ) : (
-                requests.map((request) => (
-                  <article key={request.id}>
-                    <hr />
-                    <p className="tag">
-                      {categoryLabels[request.category || "other"] || "その他"}
-                    </p>
-                    <h3>
-                      <Link href={`/requests/${request.id}`}>
-                        {request.title || "タイトルなし"}
-                      </Link>
-                    </h3>
-                    <p>
-                      <Link href={`/requests/${request.id}/applications`}>
-                        応募者を確認する
-                      </Link>
-                    </p>
-                    <button
-                      type="button"
-                      className="button secondary"
-                      onClick={() => handleDelete(request)}
-                      disabled={deletingId === request.id}
-                      style={{
-                        background: "#b42318",
-                        color: "#fff",
-                        marginTop: "8px",
-                      }}
-                    >
-                      {deletingId === request.id ? "削除中..." : "この依頼を削除"}
-                    </button>
-                  </article>
-                ))
-              )}
-            </div>
-
-            <div className="card">
-              <h2>応募した依頼（{applications.length}件）</h2>
-
-              {applications.length === 0 ? (
-                <p>まだ応募していません。</p>
-              ) : (
-                applications.map((application) => (
-                  <article key={application.id}>
-                    <hr />
-                    <p>
-                      <Link href={`/requests/${application.request_id}`}>
-                        応募した依頼の詳細を見る
-                      </Link>
-                    </p>
-                    {application.created_at && (
-                      <p className="muted">
-                        応募日：
-                        {new Date(application.created_at).toLocaleDateString("ja-JP")}
-                      </p>
-                    )}
-                  </article>
-                ))
-              )}
-            </div>
-          </>
-        )}
-
-        {message && <p role="status">{message}</p>}
-
-        <p>
-          <Link href="/requests">依頼一覧へ戻る</Link>
-        </p>
-
-        <button className="button secondary" onClick={handleLogout}>
-          ログアウト
+    <main style={{ maxWidth: "420px", margin: "40px auto", padding: "24px" }}>
+      <h1>新規会員登録</h1>
+      <form onSubmit={handleSignUp}>
+        <p>メールアドレス</p>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          style={{ width: "100%", padding: "12px", boxSizing: "border-box" }}
+        />
+        <p>パスワード（6文字以上）</p>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          minLength={6}
+          style={{ width: "100%", padding: "12px", boxSizing: "border-box" }}
+        />
+        <button
+          type="submit"
+          disabled={loading}
+          style={{ width: "100%", padding: "14px", marginTop: "20px" }}
+        >
+          {loading ? "登録中..." : "無料で会員登録"}
         </button>
-      </section>
+      </form>
+      <p role="status">{message}</p>
+      <Link href="/login">ログイン画面へ戻る</Link>
     </main>
   );
 }
