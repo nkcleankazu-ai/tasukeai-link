@@ -78,7 +78,7 @@ export default function SignupPage() {
             checked={agreed}
             onChange={(e) => setAgreed(e.target.checked)}
           />
-          {" "}利用規約と
+          {" "}以下の内容に同意する：
           <Link href="/terms">利用規約</Link>・
           <Link href="/privacy">プライバシーポリシー</Link>
           に同意する
