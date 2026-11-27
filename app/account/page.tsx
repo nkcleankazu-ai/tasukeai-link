@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -32,9 +33,11 @@ const categoryLabels: Record<string, string> = {
 export default function AccountPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
+  const [userId, setUserId] = useState("");
   const [requests, setRequests] = useState<RequestItem[]>([]);
   const [applications, setApplications] = useState<ApplicationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState("");
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -52,6 +55,7 @@ export default function AccountPage() {
       }
 
       setEmail(user.email || "");
+      setUserId(user.id);
 
       const [requestResult, applicationResult] = await Promise.all([
         supabase
@@ -91,6 +95,48 @@ export default function AccountPage() {
     void loadAccount();
   }, [router]);
 
+  async function handleDelete(request: RequestItem) {
+    const confirmed = window.confirm(
+      `「${request.title || "タイトルなし"}」を削除しますか？\nこの操作は取り消せません。`
+    );
+
+    if (!confirmed) return;
+
+    setDeletingId(request.id);
+    setMessage("");
+
+    try {
+      const supabase = createClient();
+
+      const { data, error } = await supabase
+        .from("requests")
+        .delete()
+        .eq("id", request.id)
+        .eq("user_id", userId)
+        .select("id")
+        .maybeSingle();
+
+      if (error) {
+        setMessage("削除できませんでした：" + error.message);
+        return;
+      }
+
+      if (!data) {
+        setMessage("削除できませんでした。本人の依頼か権限を確認してください。");
+        return;
+      }
+
+      setRequests((current) =>
+        current.filter((item) => item.id !== request.id)
+      );
+      setMessage("依頼を削除しました。");
+    } catch {
+      setMessage("削除中にエラーが発生しました。");
+    } finally {
+      setDeletingId("");
+    }
+  }
+
   async function handleLogout() {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -98,7 +144,14 @@ export default function AccountPage() {
   }
 
   return (
-    <main className="container" style={{ maxWidth: "800px", margin: "0 auto", padding: "24px 16px" }}>
+    <main
+      className="container"
+      style={{
+        maxWidth: "800px",
+        margin: "0 auto",
+        padding: "24px 16px",
+      }}
+    >
       <section className="section card">
         <h1>マイページ</h1>
         <p className="muted">アカウント情報と活動履歴</p>
@@ -129,9 +182,24 @@ export default function AccountPage() {
                         {request.title || "タイトルなし"}
                       </Link>
                     </h3>
-                    <Link href={`/requests/${request.id}/applications`}>
-                      応募者を確認する
-                    </Link>
+                    <p>
+                      <Link href={`/requests/${request.id}/applications`}>
+                        応募者を確認する
+                      </Link>
+                    </p>
+                    <button
+                      type="button"
+                      className="button secondary"
+                      onClick={() => handleDelete(request)}
+                      disabled={deletingId === request.id}
+                      style={{
+                        background: "#b42318",
+                        color: "#fff",
+                        marginTop: "8px",
+                      }}
+                    >
+                      {deletingId === request.id ? "削除中..." : "この依頼を削除"}
+                    </button>
                   </article>
                 ))
               )}
