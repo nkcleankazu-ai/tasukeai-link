@@ -1,4 +1,3 @@
-
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
@@ -11,10 +10,7 @@ type RouteContext = {
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !key) {
-    throw new Error("Server configuration is missing");
-  }
+  if (!url || !key) throw new Error("Server configuration is missing");
 
   return createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -24,13 +20,9 @@ function getServiceClient() {
 async function getAuthenticatedUser() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !key) {
-    throw new Error("Supabase configuration is missing");
-  }
+  if (!url || !key) throw new Error("Supabase configuration is missing");
 
   const cookieStore = cookies();
-
   const supabase = createServerClient(url, key, {
     cookies: {
       getAll() {
@@ -41,23 +33,17 @@ async function getAuthenticatedUser() {
           cookiesToSet.forEach(({ name, value, options }) => {
             cookieStore.set(name, value, options);
           });
-        } catch {
-          // Cookieを書き込めない場合があります
-        }
+        } catch {}
       },
     },
   });
 
   const { data, error } = await supabase.auth.getUser();
-
   if (error || !data.user) return null;
   return data.user;
 }
 
-async function getAuthorizedApplication(
-  accessCode: string,
-  userId: string
-) {
+async function getAuthorizedApplication(accessCode: string, userId: string) {
   const supabase = getServiceClient();
 
   const { data: application, error } = await supabase
@@ -76,10 +62,20 @@ async function getAuthorizedApplication(
 
   if (requestError || !request) return null;
 
-  const isApplicant = application.applicant_user_id === userId;
-  const isRequestOwner = request.user_id === userId;
+  const applicantId = application.applicant_user_id;
+  const ownerId = request.user_id;
 
-  if (!isApplicant && !isRequestOwner) return null;
+  if (userId !== applicantId && userId !== ownerId) return null;
+
+  const { data: blocks, error: blockError } = await supabase
+    .from("user_blocks")
+    .select("id")
+    .or(
+      `and(blocker_id.eq.${applicantId},blocked_user_id.eq.${ownerId}),and(blocker_id.eq.${ownerId},blocked_user_id.eq.${applicantId})`
+    )
+    .limit(1);
+
+  if (blockError || (blocks && blocks.length > 0)) return null;
 
   return application;
 }
@@ -90,42 +86,26 @@ function getSenderName(user: {
 }) {
   const metadataName = user.user_metadata?.full_name;
   const name = typeof metadataName === "string" ? metadataName.trim() : "";
-
   if (name) return name.slice(0, 100);
   return user.email?.slice(0, 100) || "ログインユーザー";
 }
 
-export async function GET(
-  _request: Request,
-  context: RouteContext
-) {
+export async function GET(_request: Request, context: RouteContext) {
   try {
     const user = await getAuthenticatedUser();
-
     if (!user) {
-      return NextResponse.json(
-        { error: "ログインしてください。" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "ログインしてください。" }, { status: 401 });
     }
 
     const { accessCode } = await context.params;
-
     if (!accessCode?.trim()) {
-      return NextResponse.json(
-        { error: "アクセスコードが無効です。" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "アクセスコードが無効です。" }, { status: 401 });
     }
 
-    const application = await getAuthorizedApplication(
-      accessCode,
-      user.id
-    );
-
+    const application = await getAuthorizedApplication(accessCode, user.id);
     if (!application) {
       return NextResponse.json(
-        { error: "このメッセージを閲覧する権限がありません。" },
+        { error: "閲覧できません。ブロック設定または権限を確認してください。" },
         { status: 403 }
       );
     }
@@ -137,7 +117,6 @@ export async function GET(
       .order("created_at", { ascending: true });
 
     if (error) throw error;
-
     return NextResponse.json({ messages: data });
   } catch (error) {
     console.error("Message retrieval failed:", error);
@@ -148,62 +127,39 @@ export async function GET(
   }
 }
 
-export async function POST(
-  request: Request,
-  context: RouteContext
-) {
+export async function POST(request: Request, context: RouteContext) {
   try {
     const user = await getAuthenticatedUser();
-
     if (!user) {
-      return NextResponse.json(
-        { error: "ログインしてください。" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "ログインしてください。" }, { status: 401 });
     }
 
     const { accessCode } = await context.params;
-
     if (!accessCode?.trim()) {
-      return NextResponse.json(
-        { error: "アクセスコードが無効です。" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "アクセスコードが無効です。" }, { status: 401 });
     }
 
-    const application = await getAuthorizedApplication(
-      accessCode,
-      user.id
-    );
-
+    const application = await getAuthorizedApplication(accessCode, user.id);
     if (!application) {
       return NextResponse.json(
-        { error: "このメッセージを送信する権限がありません。" },
+        { error: "送信できません。ブロック設定または権限を確認してください。" },
         { status: 403 }
       );
     }
 
     let payload: unknown;
-
     try {
       payload = await request.json();
     } catch {
-      return NextResponse.json(
-        { error: "送信内容を確認してください。" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "送信内容を確認してください。" }, { status: 400 });
     }
 
     if (typeof payload !== "object" || payload === null) {
-      return NextResponse.json(
-        { error: "送信内容が正しくありません。" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "送信内容が正しくありません。" }, { status: 400 });
     }
 
     const body = payload as Record<string, unknown>;
-    const messageBody =
-      typeof body.body === "string" ? body.body.trim() : "";
+    const messageBody = typeof body.body === "string" ? body.body.trim() : "";
 
     if (!messageBody || messageBody.length > 10000) {
       return NextResponse.json(
@@ -223,11 +179,7 @@ export async function POST(
       .single();
 
     if (error) throw error;
-
-    return NextResponse.json(
-      { message: data },
-      { status: 201 }
-    );
+    return NextResponse.json({ message: data }, { status: 201 });
   } catch (error) {
     console.error("Message sending failed:", error);
     return NextResponse.json(
